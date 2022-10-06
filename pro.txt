@@ -1,0 +1,38 @@
+kubectl create namespace monitoring
+kubectl create -f prometheus/prometheus-DaemonSet-nodeexporter.yaml
+kubectl create -f prometheus/prometheus-Service.yaml
+kubectl create -f prometheus/prometheus-Deployment.yaml
+kubectl create -f prometheus/prometheus-ClusterRole.yaml
+kubectl create -f prometheus/prometheus-ClusterRoleBinding.yaml
+kubectl create -f prometheus/prometheus-ConfigMap.yaml
+
+
+kubectl create -f kube-state/kube-state-ClusterRoleBinding.yaml
+kubectl create -f kube-state/kube-state-ClusterRole.yaml
+kubectl create -f kube-state/kube-state-ServiceAccount.yaml
+kubectl create -f kube-state/kube-state-Deployment.yaml
+kubectl create -f kube-state/kube-state-Service.yaml
+
+
+kubectl create -f grafana/grafana-Deployment.yaml
+kubectl create -f grafana/grafana-Service.yaml
+
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mynode-pod
+spec:
+  containers:
+  - image: dbgurum/mynode:1.0
+    name: mynode-container
+    ports:
+    - containerPort: 80000
+    volumeMounts:
+    - name: mynode-path
+      mountPath: /mynode
+  volumes:
+  - name: mynode-path
+    persistentVolumeClaim:
+      claimName: pvc1
