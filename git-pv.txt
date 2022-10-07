@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gitrepo-pod
+  labels:
+    app: motto
+spec:
+  containers:
+  - name: web-container
+    image: nginx:1.23.1-alpine
+    ports:
+    - containerPort: 80
+      name: "web-server"
+    volumeMounts:
+    - mountPath: "/usr/share/nginx/html" # source 가 들어갈 경로
+      name: gitrepo
+  volumes:
+  - name: gitrepo
+    gitRepo:
+      repository: https://github.com/kjh1997/whatisyourmotto
+      revision: main # branch 명
+      directory: .
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitrepo-svc
+spec:
+  selector:
+    app: motto
+  ports:
+  - port: 1080
+    targetPort: 80
+    nodePort: 30080
+  type: NodePort

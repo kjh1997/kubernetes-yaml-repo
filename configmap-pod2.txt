@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: log-level-pod
+spec:
+  containers:
+  - image: nginx:1.23.1-alpine
+    name: log-level-container
+    volumeMounts:
+    - name: vm-volume
+      mountPath: /etc/config/
+  volumes:
+  - name: cm-volume
+    configMap:
+      name: log-level-cm

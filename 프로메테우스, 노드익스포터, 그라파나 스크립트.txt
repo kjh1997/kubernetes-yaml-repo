@@ -1,0 +1,26 @@
+
+git clone https://github.com/brayanlee/k8s-prometheus.git
+
+## Prometheus
+ kubectl create namespace monitoring
+ kubectl create -f prometheus/prometheus-ConfigMap.yaml
+ kubectl create -f prometheus/prometheus-ClusterRoleBinding.yaml
+ kubectl create -f prometheus/prometheus-ClusterRole.yaml
+ kubectl create -f prometheus/prometheus-Deployment.yaml
+ kubectl create -f prometheus/prometheus-Service.yaml
+ kubectl create -f prometheus/prometheus-DaemonSet-nodeexporter.yaml
+
+
+kubectl delete -f prometheus/prometheus-DaemonSet-nodeexporter.yaml
+
+
+## kube-state
+ kubectl create -f kube-state/kube-state-ClusterRoleBinding.yaml
+ kubectl create -f kube-state/kube-state-ClusterRole.yaml
+ kubectl create -f kube-state/kube-state-ServiceAccount.yaml
+ kubectl create -f kube-state/kube-state-Deployment.yaml
+ kubectl create -f kube-state/kube-state-Service.yaml
+
+## grafana
+kubectl create -f grafana/grafana-Deployment.yaml
+kubectl create -f grafana/grafana-Service.yaml

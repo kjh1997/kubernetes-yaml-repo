@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-deploy
+  labels:
+    app: sec-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sec-app
+  templete:
+    metadata:
+      labels:
+        app: sec-app
+    spec:
+      containers:
+      - name: testapp
+        image: dbgurum/k8s-lab:secret-1.0
+        ports:
+        - containerPort: 8000
+        env:
+          - name: SECRET_USERNAME
+            valueFrom:
+              secretkeyRef:
+                name: account-pwd-secret
+                key: k8s-account.txt
+          - name: SECRET_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: account-pod-secret
+                key: k8s-pod.txt

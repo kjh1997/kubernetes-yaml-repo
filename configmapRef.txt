@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: log-level-pod
+spec:
+  containers:
+  - image: nginx:1.23.1-alpine
+    name: log-level-container
+    envFrom:
+    - configMapRef:
+        name: log-level-cm
