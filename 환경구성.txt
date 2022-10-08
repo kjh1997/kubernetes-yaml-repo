@@ -1,0 +1,208 @@
+  보안 구성 해제
+: firewall-cmd, Selinux
+
+  ## firewalld 설치
+  kevin@k8s-master:~$ sudo apt -y install firewalld
+
+  ## disable 시킨다
+  kevin@k8s-master:~$ sudo systemctl daemon-reload
+  kevin@k8s-master:~$ sudo systemctl disable firewalld.service
+
+  ## stop 시킨다
+  kevin@k8s-master:~$ sudo systemctl stop firewalld.service
+
+  ## 확인
+  kevin@k8s-master:~$ sudo firewall-cmd --reload
+
+
+
+swap 해제
+kubernetes는 swap을 사용하지 않는다. container 자체가 process(=pod)이다. 성능이 떨어질 수 있기 때문에 사용하지 않는다.
+
+  ## -a 현재 부팅된 상태에서 못 쓰게 한다.
+  kevin@k8s-master:~$ sudo swapoff -a
+
+  ## swap 라인을 아예 주석처리를 한다.
+  kevin@k8s-master:~$ sudo vi /etc/fstab
+
+
+시간 동기화
+prometheus는 시간이 안 맞으면 잘 안돌아간다.
+
+kevin@k8s-master:~$ sudo apt -y install ntp
+
+kevin@k8s-master:~$ sudo systemctl daemon-reload
+kevin@k8s-master:~$ sudo systemctl enable ntp
+kevin@k8s-master:~$ sudo systemctl restart ntp
+
+## 상태 확인
+kevin@k8s-master:~$ sudo systemctl status ntp
+● ntp.service - Network Time Service
+     Loaded: loaded (/lib/systemd/system/ntp.service; enabled; vendor preset: enabled)
+     Active: active (running)
+kevin@k8s-master:~$ sudo ntpq -p
+
+
+
+network forward 설정
+[ERROR FileContent--proc-sys-net-ipv4-ip_forward]: /proc/sys/net/ipv4/ip_forward contents are not set to 1
+이 에러를 해결 할 수 있다.
+
+  kevin@k8s-master:~$ sudo su -
+  root@k8s-master:~# cat /proc/sys/net/ipv4/ip_forward
+  0
+  root@k8s-master:~# echo '1' > /proc/sys/net/ipv4/ip_forward
+  root@k8s-master:~# cat /proc/sys/net/ipv4/ip_forward
+
+
+docker install
+docker를 설치하면 자동으로 containerd가 생긴다. 이것을 kubernetes에 연결한다.
+-> 1.24.x 버전부터 이렇게 사용한다.
+
+kevin@k8s-master:~# sudo apt -y install apt-transport-https ca-certificates curl software-properties-common gnupg2
+
+kevin@k8s-master:~# curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key --keyring /etc/apt/trusted.gpg.d/docker.gpg add -
+OK
+
+kevin@k8s-master:~# sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+kevin@k8s-master:~# tail /etc/apt/sources.list
+...
+deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+# deb-src [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+
+kevin@k8s-master:~# sudo apt -y update
+
+kevin@k8s-master:~# apt-cache policy docker-ce
+docker-ce:
+  Installed: (none)
+  Candidate: 5:20.10.18~3-0~ubuntu-focal
+
+kevin@k8s-master:~# sudo apt-get -y install docker-ce
+
+kevin@k8s-master:~$ sudo docker version
+
+
+
+cgroupfs
+자원할당, 제한 -> request & limit 옵션으로 제한한다.
+
+kubernetes는 cgroup을 사용하지 않고, cgroup의 상위 process인 systemd를 사용해야 한다. 바꾸지 않으면 설치가 되지 않는다.
+
+kevin@k8s-master:~$ sudo docker info | grep -i cgroup
+ Cgroup Driver: cgroupfs
+
+kevin@k8s-master:~$ sudo vi /etc/docker/daemon.json
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2",
+  "storage-opts": [
+    "overlay2.override_kernel_check=true"
+  ]
+}
+
+## 설정 적용하기
+kevin@k8s-master:~$ sudo mkdir -p /etc/systemd/system/docker.service.d
+kevin@k8s-master:~$ sudo systemctl daemon-reload
+kevin@k8s-master:~$ sudo systemctl enable docker
+kevin@k8s-master:~$ sudo systemctl restart docker
+kevin@k8s-master:~$ sudo systemctl status docker
+● docker.service - Docker Application Container Engine
+     Loaded: loaded (/lib/systemd/system/docker.service; enabled; vendor preset: enabled)
+     Active: active (running)
+
+## 바뀌었는지 확인
+kevin@k8s-master:~$ sudo docker info | grep -i cgroup
+ Cgroup Driver: systemd
+
+
+
+kubernetes tool
+kubeadm
+: bootstrap, init(초기화), worker node JOIN, engine 자체의 upgrade
+kubectl
+: kubernetes CLI
+kubelet
+: process(daemon) 항상 살아있어야 한다.
+## key 가져오기
+kevin@k8s-master:~$ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+[sudo] password for kevin:
+OK
+
+kevin@k8s-master:~$ cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+> deb https://apt.kubernetes.io/ kubernetes-xenial main
+> EOF
+
+kevin@k8s-master:~$ sudo apt -y update
+
+kevin@k8s-master:~$ sudo apt-cache policy kubeadm
+kubeadm:
+  Installed: (none)
+  Candidate: 1.25.2-00
+
+## 버전 체크
+kevin@k8s-master:~$ sudo apt-cache policy kubeadm | grep 1.24
+  
+## 설치
+kevin@k8s-master:~$ sudo apt -y install kubeadm=1.24.5-00 kubelet=1.24.5-00 kubectl=1.24.5-00
+
+## 설치 되었는지 확인
+kevin@k8s-master:~$ sudo apt list | grep kubernetes
+kubeadm/kubernetes-xenial 1.25.2-00 amd64 [upgradable from: 1.24.5-00]
+kubectl/kubernetes-xenial 1.25.2-00 amd64 [upgradable from: 1.24.5-00]
+kubelet/kubernetes-xenial 1.25.2-00 amd64 [upgradable from: 1.24.5-00]
+
+## 항상 살아있을 수 있게 설정
+kevin@k8s-master:~$ sudo systemctl daemon-reload
+kevin@k8s-master:~$ sudo systemctl enable --now kubelet
+
+kevin@k8s-master:~$ sudo vi /etc/hosts
+
+
+
+
+모든 master, node에서 ssh 접속 해서 키 얻어놓기
+kevin@k8s-master:~$ ssh k8s-node1
+kevin@k8s-master:~$ ssh k8s-node2
+kevin@k8s-master:~$ cat .ssh/known_hosts
+모든 master, node에서 실행
+kevin@k8s-master:~$ cd /etc/containerd/
+kevin@k8s-master:/etc/containerd$ ls
+config.toml
+kevin@k8s-master:/etc/containerd$ sudo mv config.toml config.toml.org
+kevin@k8s-master:/etc/containerd$ ls
+config.toml.org
+
+## 재시작
+kevin@k8s-master:~$ sudo systemctl restart containerd.service
+kevin@k8s-master:~$ sudo systemctl restart kubelet
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
